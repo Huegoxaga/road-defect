@@ -8,6 +8,12 @@ import mapStyle from '../utils/mapStyles.json';
 import Geocoder from 'react-native-geocoding';
 import Orientation from 'react-native-orientation';
 import IdleTimerManager from 'react-native-idle-timer';
+import {map, filter} from 'rxjs/operators';
+import {
+  accelerometer,
+  SensorTypes,
+  setUpdateIntervalForType,
+} from 'react-native-sensors';
 import {
   StyleSheet,
   Text,
@@ -55,20 +61,15 @@ export default class MapScreen extends Component {
     routeDefects: [],
     remainTask: 0,
     uploading: false,
+    currentZ: -0.45,
+    maxZ: -0.45,
+    minZ: -0.45,
   };
-
-  // App Initial Settings
-  constructor(props) {
-    super(props);
-    addSpeechFunction();
-    //Add Event Handler for three states of tts
-    Tts.addEventListener('tts-start', event => console.log('start', event));
-    Tts.addEventListener('tts-finish', event => console.log('finish', event));
-    Tts.addEventListener('tts-cancel', event => console.log('cancel', event));
-  }
 
   // Setting after mount
   componentDidMount() {
+    //setUpdateIntervalForType(SensorTypes.Accelerometer, 400);
+    this.subscription;
     //Let the screen up all the time
     IdleTimerManager.setIdleTimerDisabled(true);
     //lock the screen to landscape
@@ -97,14 +98,20 @@ export default class MapScreen extends Component {
           ...tempDefects,
           [childSnapShot.val(), childSnapShot.key],
         ];
-        if(typeof childSnapShot.val().latitude == 'number' && typeof childSnapShot.val().longitude == 'number' && (childSnapShot.val().url.includes('@') || !childSnapShot.val().type.includes('A'))){
-                      
-                      
-          routeDefects = [...routeDefects,{
-                latitude: childSnapShot.val().latitude, 
-                longitude: childSnapShot.val().longitude
-              }];
-            }
+        if (
+          typeof childSnapShot.val().latitude == 'number' &&
+          typeof childSnapShot.val().longitude == 'number' &&
+          (childSnapShot.val().url.includes('@') ||
+            !childSnapShot.val().type.includes('A'))
+        ) {
+          routeDefects = [
+            ...routeDefects,
+            {
+              latitude: childSnapShot.val().latitude,
+              longitude: childSnapShot.val().longitude,
+            },
+          ];
+        }
       });
 
       this.setState({
@@ -118,7 +125,38 @@ export default class MapScreen extends Component {
     Orientation.lockToPortrait();
     //set the idle timer back to normal
     IdleTimerManager.setIdleTimerDisabled(false);
+    setTimeout(() => {
+      // If it's the last subscription to accelerometer it will stop polling in the native API
+      this.subscription.unsubscribe();
+    }, 1000);
   }
+
+  subscription = accelerometer
+    .pipe(
+      map(({x, y, z}) => z),
+      filter(speed => speed > 0.2),
+    )
+    .subscribe(speed => {
+      console.log(speed);
+      this.setState(
+        {currentZ: speed},
+        (setMaxMin = () => {
+          //console.log('nowwwwwwwwwwwwwwww!!!!', this.state.currentZ);
+          if (this.state.maxZ < this.state.currentZ) {
+            console.log('maxgetas', this.state.currentZ);
+            this.setState({
+              maxZ: this.state.currentZ,
+            });
+          }
+          if (this.state.minZ > this.state.currentZ) {
+            console.log('mingetas', this.state.currentZ);
+            this.setState({
+              minZ: this.state.currentZ,
+            });
+          }
+        }),
+      );
+    });
 
   photoUpdate = async () => {
     if (
@@ -129,29 +167,42 @@ export default class MapScreen extends Component {
           longitude: this.state.prevLongitude,
         },
         {unit: 'meter'},
-      ) > 0
+      ) > 3
     ) {
       this.setState({
         prevLatitude: this.state.latitude,
         prevLongitude: this.state.longitude,
       });
+
       if (this.camera && !this.state.togglePhoto) {
         try {
-          const data = await this.camera.takePictureAsync({quality: 0.01}); //quality: 1
+          const data = await this.camera.takePictureAsync({quality: 0.005}); //quality: 1
 
-          await database.ref('roadDefect/').push({
-            timeText: timeToString(this.state.timestamp),
-            userID: 'testUser',
-            driver: 'testDriver',
-            plate: 'testPlate',
-            timestamp: this.state.timestamp,
-            address: this.state.address,
-            latitude: this.state.latitude,
-            longitude: this.state.longitude,
-            heading: this.state.heading,
-            url: data.uri + '@' + this.state.driver,
-            type: 'A',
-          });
+          await database
+            .ref('roadDefect/')
+            .push({
+              timeText: timeToString(this.state.timestamp),
+              userID: 'testUser',
+              driver: 'testDriver',
+              plate: 'testPlate',
+              timestamp: this.state.timestamp,
+              address: this.state.address,
+              latitude: this.state.latitude,
+              longitude: this.state.longitude,
+              heading: this.state.heading,
+              url: data.uri + '@' + this.state.driver,
+              type: 'A',
+              maxZ: this.state.maxZ,
+              minZ: this.state.minZ,
+            })
+            .then(
+              (x = () => {
+                this.setState({
+                  maxZ: this.state.currentZ,
+                  minZ: this.state.currentZ,
+                });
+              }),
+            );
         } catch (e) {
           console.error(e);
         }

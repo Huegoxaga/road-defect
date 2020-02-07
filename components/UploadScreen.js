@@ -10,8 +10,6 @@ import {
   Alert,
   SafeAreaView,
 } from 'react-native';
-import {createAppContainer} from 'react-navigation';
-import {createStackNavigator} from 'react-navigation-stack';
 import Orientation from 'react-native-orientation';
 import IdleTimerManager from 'react-native-idle-timer';
 import {database, storage} from '../utils/firebase';
@@ -26,7 +24,9 @@ export default class UploadScreen extends Component {
     showCompleteModal: false,
     totalTask: 0,
     remainTask: 0,
+    concurrentTask: 0,
     space: 0,
+    callCount: 0,
   };
   // Setting after mount
   componentDidMount() {
@@ -82,26 +82,41 @@ export default class UploadScreen extends Component {
       },
       uploadDelay => {
         setTimeout(upload => {
-          let currentTotal = this.state.totalTask;
-          this.state.defects.map(defect => {
-            this.uploadPromise(defect).then(() => {
-              currentTotal--;
-              this.setState({
-                remainTask: currentTotal,
-              });
-              if (currentTotal == 0) {
-                this.setState({
-                  showUploadModal: false,
-                  showConfirmModal: false,
-                  showCompleteModal: true,
-                });
-                IdleTimerManager.setIdleTimerDisabled(false);
-              }
-            });
-          });
+          this.groupUpload();
         }, 100);
       },
     );
+  };
+
+  groupUpload = () => {
+    this.setState({
+      callCount: this.state.callCount++,
+    });
+    for (i = 0; i < 15; i++) {
+      this.setState({
+        concurrentTask: this.state.concurrentTask++,
+      });
+      this.uploadPromise(
+        this.state.defects[this.state.callCount * 15 + i],
+      ).then(() => {
+        this.setState({
+          remainTask: this.state.remainTask--,
+          concurrentTask: this.state.concurrentTask--,
+        });
+        if (this.state.concurrentTask < 5 && this.state.showUploadModal) {
+          this.groupUpload();
+        }
+        if (this.state.currentTotal == 0) {
+          this.setState({
+            showUploadModal: false,
+            showConfirmModal: false,
+            showCompleteModal: true,
+            callCount: 0,
+          });
+          IdleTimerManager.setIdleTimerDisabled(false);
+        }
+      });
+    }
   };
 
   uploadPromise = defect => {
@@ -181,7 +196,7 @@ export default class UploadScreen extends Component {
               %
             </Text>
             <Text style={[styles.submessage, {top: 90, fontSize: 11}]}>
-              {this.state.remainTask} photos remaining...
+              {this.state.remainTask} data points remaining...
             </Text>
           </View>
           <Text style={[styles.message, {top: 350}]}>
@@ -264,7 +279,9 @@ export default class UploadScreen extends Component {
             this.state.showConfirmModal ||
             this.state.showCompleteModal
           }>
-          <SafeAreaView style={styles.modalView}>{this.getModal()}</SafeAreaView>
+          <SafeAreaView style={styles.modalView}>
+            {this.getModal()}
+          </SafeAreaView>
         </Modal>
       </SafeAreaView>
     );
