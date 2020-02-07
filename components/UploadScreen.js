@@ -89,33 +89,24 @@ export default class UploadScreen extends Component {
   };
 
   groupUpload = () => {
-    this.setState({
-      callCount: this.state.callCount++,
-    });
-    for (i = 0; i < 15; i++) {
-      this.setState({
-        concurrentTask: this.state.concurrentTask++,
-      });
-      this.uploadPromise(
-        this.state.defects[this.state.callCount * 15 + i],
-      ).then(() => {
-        this.setState({
-          remainTask: this.state.remainTask--,
-          concurrentTask: this.state.concurrentTask--,
-        });
-        if (this.state.concurrentTask < 5 && this.state.showUploadModal) {
-          this.groupUpload();
-        }
-        if (this.state.currentTotal == 0) {
+    for (i = 0; i < 40; i++) {
+      this.uploadPromise(this.state.defects[i])
+        .then(() => {
+          //console.log(this.state.remainTask);
           this.setState({
-            showUploadModal: false,
-            showConfirmModal: false,
-            showCompleteModal: true,
-            callCount: 0,
+            remainTask: --this.state.remainTask,
           });
-          IdleTimerManager.setIdleTimerDisabled(false);
-        }
-      });
+          if (this.state.remainTask == 0) {
+            this.setState({
+              showUploadModal: false,
+              showConfirmModal: false,
+              showCompleteModal: true,
+              callCount: 0,
+            });
+            IdleTimerManager.setIdleTimerDisabled(false);
+          }
+        })
+        .catch(e => console.log(e.message));
     }
   };
 
@@ -132,7 +123,7 @@ export default class UploadScreen extends Component {
           function progress(snapshot) {
             var percentage =
               (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log(percentage);
+            //console.log(percentage);
           },
           function error(err) {},
           function complete() {
