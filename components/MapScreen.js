@@ -9,6 +9,8 @@ import Geocoder from 'react-native-geocoding';
 import Orientation from 'react-native-orientation';
 import IdleTimerManager from 'react-native-idle-timer';
 import {map, filter} from 'rxjs/operators';
+import {getUniqueId} from 'react-native-device-info';
+
 import {
   accelerometer,
   SensorTypes,
@@ -34,7 +36,7 @@ import addSpeechFunction, {
   stopRecognizing,
 } from '../utils/speechFunction';
 import uploader, {bindUploadListener, uploadPromise} from '../utils/upload';
-
+import RNFS from 'react-native-fs';
 export default class MapScreen extends Component {
   // Set sessional data
   state = {
@@ -64,12 +66,15 @@ export default class MapScreen extends Component {
     currentZ: -0.45,
     maxZ: -0.45,
     minZ: -0.45,
+    isCameraReady: true,
+    sensorData: {x: 0, y: 0, z: 0},
+    deviceID: null,
   };
 
   // Setting after mount
   componentDidMount() {
-    //setUpdateIntervalForType(SensorTypes.Accelerometer, 400);
-    this.subscription;
+    setUpdateIntervalForType(SensorTypes.accelerometer, 600); // defaults to 100ms
+    this.setState({deviceID: getUniqueId()});
     //Let the screen up all the time
     IdleTimerManager.setIdleTimerDisabled(true);
     //lock the screen to landscape
@@ -125,38 +130,10 @@ export default class MapScreen extends Component {
     Orientation.lockToPortrait();
     //set the idle timer back to normal
     IdleTimerManager.setIdleTimerDisabled(false);
-    setTimeout(() => {
-      // If it's the last subscription to accelerometer it will stop polling in the native API
-      this.subscription.unsubscribe();
-    }, 1000);
   }
-
-  subscription = accelerometer
-    .pipe(
-      map(({x, y, z}) => z),
-      filter(speed => speed > 0.2),
-    )
-    .subscribe(speed => {
-      console.log(speed);
-      this.setState(
-        {currentZ: speed},
-        (setMaxMin = () => {
-          //console.log('nowwwwwwwwwwwwwwww!!!!', this.state.currentZ);
-          if (this.state.maxZ < this.state.currentZ) {
-            console.log('maxgetas', this.state.currentZ);
-            this.setState({
-              maxZ: this.state.currentZ,
-            });
-          }
-          if (this.state.minZ > this.state.currentZ) {
-            console.log('mingetas', this.state.currentZ);
-            this.setState({
-              minZ: this.state.currentZ,
-            });
-          }
-        }),
-      );
-    });
+  subscription = (subscription = accelerometer.subscribe(({x, y, z}) => {
+    this.setState({sensorData: {x: x, y: y, z: z}});
+  }));
 
   photoUpdate = async () => {
     if (
@@ -174,26 +151,29 @@ export default class MapScreen extends Component {
         prevLongitude: this.state.longitude,
       });
 
-      if (this.camera && !this.state.togglePhoto) {
+      if (this.camera && !this.state.togglePhoto && this.state.isCameraReady) {
         try {
+          this.setState({
+            isCameraReady: false,
+          });
           const data = await this.camera.takePictureAsync({quality: 0.005}); //quality: 1
-
+          let filename = data.uri.split('/')[12];
+          let destPath =
+            'file://' + RNFS.DocumentDirectoryPath + '/' + filename;
+          console.log(data.uri);
+          console.log(destPath);
+          RNFS.moveFile(data.uri, destPath);
           await database
             .ref('roadDefect/')
             .push({
-              timeText: timeToString(this.state.timestamp),
-              userID: 'testUser',
-              driver: 'testDriver',
-              plate: 'testPlate',
-              timestamp: this.state.timestamp,
-              address: this.state.address,
+              date_time: timeToString(this.state.timestamp),
+              image: timeToString(this.state.timestamp),
               latitude: this.state.latitude,
               longitude: this.state.longitude,
               heading: this.state.heading,
-              url: data.uri + '@' + this.state.driver,
-              type: 'A',
-              maxZ: this.state.maxZ,
-              minZ: this.state.minZ,
+              url: destPath + '@' + this.state.driver,
+              accelerometer: this.state.sensorData,
+              device_serial_number: this.state.deviceID,
             })
             .then(
               (x = () => {
@@ -240,17 +220,27 @@ export default class MapScreen extends Component {
 
   togglePhotoPressed = () => {
     if (this.state.togglePhoto) {
+      this.state.subscription;
       this.setState({
         togglePhoto: false,
         hideCamera: true,
       });
     } else {
+      setTimeout(() => {
+        // If it's the last subscription to accelerometer it will stop polling in the native API
+        this.subscription.unsubscribe();
+      }, 1000);
       this.setState({
         togglePhoto: true,
         hideCamera: false,
       });
       this.props.navigation.navigate('Welcome');
     }
+  };
+  cameraReady = () => {
+    this.setState({
+      isCameraReady: true,
+    });
   };
   render() {
     return (
@@ -285,6 +275,7 @@ export default class MapScreen extends Component {
           type={RNCamera.Constants.Type.back}
           flashMode={RNCamera.Constants.FlashMode.off}
           captureAudio={false}
+          onCameraReady={this.cameraReady}
           androidCameraPermissionOptions={{
             title: 'Permission to use camera',
             message: 'We need your permission to use your camera',

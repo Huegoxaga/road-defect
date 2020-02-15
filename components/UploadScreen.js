@@ -15,6 +15,7 @@ import IdleTimerManager from 'react-native-idle-timer';
 import {database, storage} from '../utils/firebase';
 import {getColor, timeToString, uriToBlob} from '../utils/utilFunctions';
 import {getFreeDiskStorage} from 'react-native-device-info';
+import RNFS from 'react-native-fs';
 
 export default class UploadScreen extends Component {
   state = {
@@ -89,12 +90,16 @@ export default class UploadScreen extends Component {
   };
 
   groupUpload = () => {
-    for (i = 0; i < 40; i++) {
+    let startPoint = this.state.totalTask - this.state.remainTask;
+    for (i = startPoint; i < startPoint + 3; i++) {
+      this.setState({
+        concurrentTask: ++this.state.concurrentTask,
+      });
       this.uploadPromise(this.state.defects[i])
         .then(() => {
-          //console.log(this.state.remainTask);
           this.setState({
             remainTask: --this.state.remainTask,
+            concurrentTask: --this.state.concurrentTask,
           });
           if (this.state.remainTask == 0) {
             this.setState({
@@ -104,6 +109,11 @@ export default class UploadScreen extends Component {
               callCount: 0,
             });
             IdleTimerManager.setIdleTimerDisabled(false);
+          } else if (
+            this.state.concurrentTask == 0 &&
+            this.state.showUploadModal
+          ) {
+            this.groupUpload();
           }
         })
         .catch(e => console.log(e.message));
@@ -112,31 +122,47 @@ export default class UploadScreen extends Component {
 
   uploadPromise = defect => {
     return new Promise(function(resolve, reject) {
-      uriToBlob(defect[0].url.split('@')[0]).then(function(blob) {
-        let task = storage
-          .ref()
-          .child('videos/' + '_' + defect[1])
-          .put(blob);
-        //Update progress bar
-        task.on(
-          'state_changed',
-          function progress(snapshot) {
-            var percentage =
-              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            //console.log(percentage);
-          },
-          function error(err) {},
-          function complete() {
-            task.snapshot.ref.getDownloadURL().then(function(link) {
-              database.ref('roadDefect/' + defect[1]).update({
-                url: link,
+      let filePath = defect[0].url.split('@')[0];
+      uriToBlob(filePath)
+        .then(function(blob) {
+          let task = storage
+            .ref()
+            .child('videos/' + '_' + defect[1])
+            .put(blob);
+          //Update progress bar
+          task.on(
+            'state_changed',
+            function progress(snapshot) {
+              // var percentage =
+              //   (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              //console.log(percentage);
+            },
+            function error(err) {
+              // upload error message
+              console.log(err.message);
+            },
+            function complete() {
+              task.snapshot.ref.getDownloadURL().then(function(link) {
+                database.ref('roadDefect/' + defect[1]).update({
+                  url: link,
+                });
+                RNFS.unlink(filePath)
+                  .then(() => {
+                    console.log('FILE DELETED: ', filePath);
+                  })
+                  // `unlink` will throw an error, if the item to unlink does not exist
+                  .catch(err => {
+                    console.log(err.message);
+                  });
               });
-            });
-            blob.close();
-            resolve();
-          },
-        );
-      });
+              blob.close();
+              resolve();
+            },
+          );
+        })
+        .catch(e => {
+          console.log('blob failed', e.message);
+        });
     });
   };
   getModal() {
@@ -237,9 +263,9 @@ export default class UploadScreen extends Component {
   showInfo() {
     let info;
     if (this.state.remainTask == 0) {
-      info = 'All photos have been uploaded.';
+      info = 'All data points have been uploaded.';
     } else {
-      info = this.state.remainTask + ' photos have not been uploaded.';
+      info = this.state.remainTask + ' data points have not been uploaded.';
     }
     return info;
   }
