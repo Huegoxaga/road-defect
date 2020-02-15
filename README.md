@@ -1,3 +1,9 @@
+## Change Log
+
+### 1.4.1
+
+- Minor fixes on the upload task counter.
+
 ### 1.4
 
 - Improved concurrent upload method(20 photos at a time) which is capable of uploading large amount of photos with low internet band-width.

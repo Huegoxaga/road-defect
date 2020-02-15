@@ -91,7 +91,7 @@ export default class UploadScreen extends Component {
 
   groupUpload = () => {
     let startPoint = this.state.totalTask - this.state.remainTask;
-    for (i = startPoint; i < startPoint + 3; i++) {
+    for (i = startPoint; i < startPoint + 20; i++) {
       this.setState({
         concurrentTask: ++this.state.concurrentTask,
       });
@@ -110,7 +110,7 @@ export default class UploadScreen extends Component {
             });
             IdleTimerManager.setIdleTimerDisabled(false);
           } else if (
-            this.state.concurrentTask == 0 &&
+            this.state.concurrentTask < 5 &&
             this.state.showUploadModal
           ) {
             this.groupUpload();
