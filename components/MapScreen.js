@@ -26,7 +26,9 @@ import {
   Alert,
   ActivityIndicator,
   SafeAreaView,
+  Platform,
 } from 'react-native';
+import CameraRoll from '@react-native-community/cameraroll';
 import * as Img from '../utils/images.js';
 import {getColor, timeToString, uriToBlob} from '../utils/utilFunctions';
 import haversine from 'haversine';
@@ -144,7 +146,7 @@ export default class MapScreen extends Component {
           longitude: this.state.prevLongitude,
         },
         {unit: 'meter'},
-      ) > 3
+      ) > 0
     ) {
       this.setState({
         prevLatitude: this.state.latitude,
@@ -158,11 +160,21 @@ export default class MapScreen extends Component {
           });
           const data = await this.camera.takePictureAsync({quality: 0.005}); //quality: 1
           let filename = data.uri.split('/')[12];
-          let destPath =
-            'file://' + RNFS.DocumentDirectoryPath + '/' + filename;
-          console.log(data.uri);
-          console.log(destPath);
-          RNFS.moveFile(data.uri, destPath);
+
+          let destPath;
+
+          if (Platform.OS === 'android') {
+            destPath =
+              'file://' + RNFS.ExternalDirectoryPath + '/IrisData/' + filename;
+            RNFS.moveFile(data.uri, destPath);
+          } else {
+            //CameraRoll.save(data.uri, { "photo", "IrisData" })
+            destPath = await CameraRoll.save(data.uri, {
+              type: 'photo',
+              album: 'IrisData',
+            });
+            RNFS.unlink(data.uri);
+          }
           await database
             .ref('roadDefect/')
             .push({
