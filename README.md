@@ -1,9 +1,14 @@
 ## Change Log
 
+### 1.4.3
+
+- Fixed bugs that caused by updating sensor data after MapScreen is unmounted.
+- Deleted filter for type 'A' when type property is removed.
+
 ### 1.4.2
 
 - Added external media folder '/IrisMedia' for photos taken by android.
-- Move all photos taken by iPhone to CameraRoll for testing purpose.
+- Move all photos taken by iPhone to the IrisMedia Album of the CameraRoll for testing purpose.
 
 ### 1.4.1
 

@@ -108,8 +108,7 @@ export default class MapScreen extends Component {
         if (
           typeof childSnapShot.val().latitude == 'number' &&
           typeof childSnapShot.val().longitude == 'number' &&
-          (childSnapShot.val().url.includes('@') ||
-            !childSnapShot.val().type.includes('A'))
+          childSnapShot.val().url.includes('@')
         ) {
           routeDefects = [
             ...routeDefects,
@@ -132,6 +131,7 @@ export default class MapScreen extends Component {
     Orientation.lockToPortrait();
     //set the idle timer back to normal
     IdleTimerManager.setIdleTimerDisabled(false);
+    this.subscription.unsubscribe();
   }
   subscription = (subscription = accelerometer.subscribe(({x, y, z}) => {
     this.setState({sensorData: {x: x, y: y, z: z}});
@@ -146,7 +146,7 @@ export default class MapScreen extends Component {
           longitude: this.state.prevLongitude,
         },
         {unit: 'meter'},
-      ) > 0
+      ) > 3
     ) {
       this.setState({
         prevLatitude: this.state.latitude,
@@ -238,10 +238,6 @@ export default class MapScreen extends Component {
         hideCamera: true,
       });
     } else {
-      setTimeout(() => {
-        // If it's the last subscription to accelerometer it will stop polling in the native API
-        this.subscription.unsubscribe();
-      }, 1000);
       this.setState({
         togglePhoto: true,
         hideCamera: false,
