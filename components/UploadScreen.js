@@ -16,7 +16,7 @@ import {database, storage} from '../utils/firebase';
 import {getColor, timeToString, uriToBlob} from '../utils/utilFunctions';
 import {getFreeDiskStorage} from 'react-native-device-info';
 import RNFS from 'react-native-fs';
-
+import {getUniqueId} from 'react-native-device-info';
 export default class UploadScreen extends Component {
   state = {
     defects: [],
@@ -54,8 +54,7 @@ export default class UploadScreen extends Component {
 
         let filteredDefect = tempDefects.filter(
           validDefect =>
-            typeof validDefect[0].latitude == 'number' &&
-            typeof validDefect[0].longitude == 'number' &&
+            validDefect[0].device_serial_number.includes(getUniqueId()) &&
             validDefect[0].url.includes('@'),
         );
 
@@ -145,6 +144,7 @@ export default class UploadScreen extends Component {
               task.snapshot.ref.getDownloadURL().then(function(link) {
                 database.ref('roadDefect/' + defect[1]).update({
                   url: link,
+                  image: timeToString(new Date()),
                 });
                 RNFS.unlink(filePath)
                   .then(() => {

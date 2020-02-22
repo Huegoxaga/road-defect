@@ -16,6 +16,7 @@
     "haversine": "^1.1.1",
     "react": "16.9.0",
     "react-native": "0.61.5",
+    "react-native-background-timer": "^2.1.1",
     "react-native-background-upload": "^5.1.0",
     "react-native-camera": "^3.15.0",
     "react-native-device-info": "^5.4.3",

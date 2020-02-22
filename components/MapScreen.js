@@ -10,6 +10,7 @@ import Orientation from 'react-native-orientation';
 import IdleTimerManager from 'react-native-idle-timer';
 import {map, filter} from 'rxjs/operators';
 import {getUniqueId} from 'react-native-device-info';
+import BackgroundTimer from 'react-native-background-timer';
 
 import {
   accelerometer,
@@ -71,11 +72,23 @@ export default class MapScreen extends Component {
     isCameraReady: true,
     sensorData: {x: 0, y: 0, z: 0},
     deviceID: null,
+    sessionID: null,
+    runningTime: 1,
   };
 
   // Setting after mount
   componentDidMount() {
     setUpdateIntervalForType(SensorTypes.accelerometer, 600); // defaults to 100ms
+    BackgroundTimer.runBackgroundTimer(() => {
+      this.setState({
+        runningTime: this.state.runningTime + 1,
+        sessionID:
+          (this.state.timestamp.getMonth() + 1) * 10000 +
+          this.state.timestamp.getDate() * 100 +
+          this.state.runningTime,
+      });
+    }, 3600000);
+
     this.setState({deviceID: getUniqueId()});
     //Let the screen up all the time
     IdleTimerManager.setIdleTimerDisabled(true);
@@ -108,7 +121,8 @@ export default class MapScreen extends Component {
         if (
           typeof childSnapShot.val().latitude == 'number' &&
           typeof childSnapShot.val().longitude == 'number' &&
-          childSnapShot.val().url.includes('@')
+          childSnapShot.val().url.includes('@') &&
+          childSnapShot.val().device_serial_number.includes(getUniqueId())
         ) {
           routeDefects = [
             ...routeDefects,
@@ -132,6 +146,7 @@ export default class MapScreen extends Component {
     //set the idle timer back to normal
     IdleTimerManager.setIdleTimerDisabled(false);
     this.subscription.unsubscribe();
+    BackgroundTimer.stopBackgroundTimer(); //after this call all code on background stop run.
   }
   subscription = (subscription = accelerometer.subscribe(({x, y, z}) => {
     this.setState({sensorData: {x: x, y: y, z: z}});
@@ -179,13 +194,16 @@ export default class MapScreen extends Component {
             .ref('roadDefect/')
             .push({
               date_time: timeToString(this.state.timestamp),
-              image: timeToString(this.state.timestamp),
+              image: '',
               latitude: this.state.latitude,
               longitude: this.state.longitude,
               heading: this.state.heading,
               url: destPath + '@' + this.state.driver,
               accelerometer: this.state.sensorData,
               device_serial_number: this.state.deviceID,
+              session_id: this.state.sessionID,
+              app_id: '001',
+              app_version: '1.0.0',
             })
             .then(
               (x = () => {

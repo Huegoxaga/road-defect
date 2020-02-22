@@ -1,5 +1,11 @@
 ## Change Log
 
+### 1.4.4
+
+- Added a background timer for session_id.
+- Updated the uploading completion time for the image data.
+- Added a filter that only fetch data points taken by the current device for both map and upload screen.
+
 ### 1.4.3
 
 - Fixed bugs that caused by updating sensor data after MapScreen is unmounted.
@@ -8,7 +14,7 @@
 ### 1.4.2
 
 - Added external media folder '/IrisMedia' for photos taken by android.
-- Move all photos taken by iPhone to the IrisMedia Album of the CameraRoll for testing purpose.
+- Move all photos taken by the iPhone to the IrisMedia Album of the CameraRoll for testing purposes.
 
 ### 1.4.1
 
@@ -33,7 +39,7 @@
 ### 1.3
 
 - Added React Native Sensor
-- Added listener that get z data of the accelelator every 400ms, stores and uploads max and min.
+- Added a listener that gets z data of the accelerator every 400ms, stores and uploads max and min.
 - Added group upload method.
 
 ### 1.2
